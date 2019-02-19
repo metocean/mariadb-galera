@@ -1,0 +1,24 @@
+version: '2.2'
+services:
+    consul:
+        image: consul:1.4.0
+        hostname: consul
+        network_mode: bridge
+        ports:
+            - "8500:8500"
+        environment:
+            CONSUL_BIND_INTERFACE: eth0
+
+    galera:
+        build: .
+        image: galera
+        dns: 127.0.0.1
+        restart: always
+        network_mode: bridge
+        links:
+            - consul
+        environment:
+            CONSULOPTS: -enable-local-script-checks -dns-port=53
+            DATABASE_HOST: galera.service.consul
+        volumes:
+            - ./galera.consul.json:/consul/galera.json

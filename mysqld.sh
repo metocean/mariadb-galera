@@ -54,7 +54,7 @@ fi
 
 # Start Consul
 
-export CLUSTER_IP=
+
 
 trap 'kill -TERM $PID' TERM INT
 
@@ -63,22 +63,24 @@ if [ -z "$CONSULDIR" ]; then export CONSULDIR="/consul";fi
 if [[ "$(ls -A $CONSULDIR)" ]] || [[ -n $CONSULOPTS  ]]; then
     exec consul agent -data-dir=$CONSULDATA -config-dir=$CONSULDIR $CONSULOPTS &
     CONSULPID=$!
-    if [[ -n "$DATABASE_HOST" ]]; then
-      export MYIP="`hostname -I | xargs`"
+    if [[ -n $DATABASE_HOST ]]; then
+      echo "${LOG_MESSAGE} Looking for other peers under same host."
+      MYIP="`hostname -I | xargs`"
+      CLUSTER_IPS=
       for ip in `dig ${DATABASE_HOST} +short`; do
         if [ "$ip" != "$MYIP" ]; then
-          export CLUSTER_IP="$CLUSTER_IP,$ip"
-          OPT="$OPT --wsrep-cluster-address=gcomm://$CLUSTER_IP"
+          CLUSTER_IPS="${CLUSTER_IPS}${CLUSTER_IPS:+,}$ip"
         fi
       done
+      OPT="$OPT --wsrep-cluster-address=gcomm://$CLUSTER_IPS"
     fi
-    if [ -n "$CLUSTER_IP" ]; then export CLUSTER_IP=${CLUSTER_IP:1};fi
 fi
 
 # Start mysqld
-echo "${LOG_MESSAGE} Starting mysqld daemon"
-$MYSQLD $OPT --wsrep_start_position=$wsrep_start_position &\
-PID=$!
+OPT="$OPT --wsrep_start_position=$wsrep_start_position"
+echo "${LOG_MESSAGE} Starting mysqld daemon with args: $OPT"
+$MYSQLD $OPT &\
+PID=$!  
 
 if [[ -n $DATABASE_DB ]] && [[ -n $DATABASE_USER ]]  && [[ -n $DATABASE_PASS ]]; then
   sleep 20
