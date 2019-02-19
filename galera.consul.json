@@ -1,0 +1,13 @@
+{
+  "service": {
+    "name": "galera",
+    "port": 3306,
+    "check": {
+        "id": "mysql-ping",
+        "name": "Check if server is alive",
+        "args": ["mysqladmin", "ping"],
+        "interval": "30s",
+        "timeout": "1s"
+    }
+  }
+}

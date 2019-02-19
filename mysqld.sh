@@ -51,9 +51,43 @@ fi
 
 # Start mysqld
 
-exec $MYSQLD $OPT --wsrep_start_position=$wsrep_start_position
 
-# We should never end in here
+# Start Consul
 
-echo "${LOG_MESSAGE} Uhh thats evil! How are you able to see this in your log?!"
-exit 1
+export CLUSTER_IP=
+
+trap 'kill -TERM $PID' TERM INT
+
+if [ -z "$CONSULDATA" ]; then export CONSULDATA="/tmp/consul-data";fi
+if [ -z "$CONSULDIR" ]; then export CONSULDIR="/consul";fi
+if [[ "$(ls -A $CONSULDIR)" ]] || [[ -n $CONSULOPTS  ]]; then
+    exec consul agent -data-dir=$CONSULDATA -config-dir=$CONSULDIR $CONSULOPTS &
+    CONSULPID=$!
+    if [[ -n "$DATABASE_HOST" ]]; then
+      export MYIP="`hostname -I | xargs`"
+      for ip in `dig ${DATABASE_HOST} +short`; do
+        if [ "$ip" != "$MYIP" ]; then
+          export CLUSTER_IP="$CLUSTER_IP,$ip"
+          OPT="$OPT --wsrep-cluster-address=gcomm://$CLUSTER_IP"
+        fi
+      done
+    fi
+    if [ -n "$CLUSTER_IP" ]; then export CLUSTER_IP=${CLUSTER_IP:1};fi
+fi
+
+# Start mysqld
+echo "${LOG_MESSAGE} Starting mysqld daemon"
+$MYSQLD $OPT --wsrep_start_position=$wsrep_start_position &\
+PID=$!
+
+if [[ -n $DATABASE_DB ]] && [[ -n $DATABASE_USER ]]  && [[ -n $DATABASE_PASS ]]; then
+  sleep 20
+  echo "${LOG_MESSAGE} Creating default database '${DATABASE_DB}' for user '${DATABASE_USER}'.."
+  mysqladmin create $DATABASE_DB &&\
+  mysql -u root -e "GRANT ALL PRIVILEGES ON $DATABASE_DB.* TO '$DATABASE_USER'@'%' IDENTIFIED BY '$DATABASE_PASS';"
+fi
+
+wait $CONSULPID 
+wait $PID
+trap - TERM INT
+wait $PID
