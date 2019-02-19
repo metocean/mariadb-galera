@@ -55,13 +55,14 @@ fi
 # Start Consul
 
 
-
-trap 'kill -TERM $PID' TERM INT
+CONSULEXIT=
+trap '$CONSULEXIT; kill -TERM $PID' TERM INT
 
 if [ -z "$CONSULDATA" ]; then export CONSULDATA="/tmp/consul-data";fi
 if [ -z "$CONSULDIR" ]; then export CONSULDIR="/consul";fi
 if [[ "$(ls -A $CONSULDIR)" ]] || [[ -n $CONSULOPTS  ]]; then
-    exec consul agent -data-dir=$CONSULDATA -config-dir=$CONSULDIR $CONSULOPTS &
+    CONSULEXIT="consul leave"
+    consul agent -data-dir=$CONSULDATA -config-dir=$CONSULDIR $CONSULOPTS &
     CONSULPID=$!
     if [[ -n $DATABASE_HOST ]]; then
       echo "${LOG_MESSAGE} Looking for other peers under same host."

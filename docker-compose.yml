@@ -18,7 +18,7 @@ services:
         links:
             - consul
         environment:
-            CONSULOPTS: -enable-local-script-checks -dns-port=53
+            CONSULOPTS: -join consul -enable-local-script-checks -dns-port=53
             DATABASE_HOST: galera.service.consul
         volumes:
             - ./galera.consul.json:/consul/galera.json
