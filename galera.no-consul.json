@@ -1,0 +1,13 @@
+{
+  "name": "galera",
+  "port": 3306,
+  "address": "172.99.99.4",
+  "checks": [{
+      "docker_container_id": "galera_galera-no-consul_1",
+      "name": "Check if server is alive",
+      "args": ["mysqladmin", "ping"],
+      "interval": "30s",
+      "timeout": "5s"
+  }]
+}
+

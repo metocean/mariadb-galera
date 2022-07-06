@@ -1,24 +1,62 @@
 version: '2.2'
 services:
     consul:
-        image: consul:1.4.0
+        image: consul:1.12.2
         hostname: consul
-        network_mode: bridge
+        networks: 
+            network:
+                ipv4_address: 172.99.99.2
         ports:
             - "8500:8500"
+        expose:
+            - 53
+            - 8300
         environment:
             CONSUL_BIND_INTERFACE: eth0
+            DOCKER_HOST: unix:///var/run/docker.sock
+            CONSUL_ALLOW_PRIVILEGED_PORTS: 1
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+        command: agent -dev -client 172.99.99.2 -dns-port=53 -recursor=8.8.8.8 -enable-script-checks
 
-    galera:
+    galera1:
         build: .
         image: galera
         dns: 127.0.0.1
         restart: always
-        network_mode: bridge
+        networks: 
+            network:
+                ipv4_address: 172.99.99.3
         links:
             - consul
         environment:
-            CONSULOPTS: -join consul -enable-local-script-checks -dns-port=53
+            CONSULOPTS: -join consul -enable-local-script-checks -dns-port=53 -bind 172.99.99.3
             DATABASE_HOST: galera.service.consul
         volumes:
             - ./galera.consul.json:/consul/galera.json
+
+    galera2:
+        build: .
+        image: galera
+        dns: 172.99.99.2
+        restart: always
+        networks: 
+            network:
+                ipv4_address: 172.99.99.4
+        links:
+            - consul
+            - galera1
+        environment:
+            CONSULHTTP: http://consul:8500 
+            SERVICEFILE: /tmp/galera.json
+            DATABASE_HOST: galera.service.consul
+        volumes:
+            - ./galera.no-consul.json:/tmp/galera.json
+            - ./entrypoing.sh:/.entrypoing.sh
+
+networks:
+    network:
+        ipam:
+          driver: default
+          config:
+            - subnet: "172.99.99.0/24"

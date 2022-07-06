@@ -5,9 +5,9 @@ ADD mariadb.list /etc/apt/sources.list.d/
 RUN chown root: /etc/apt/sources.list.d/mariadb.list
 RUN apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xcbcb082a1bb943db && \
     apt-get update && \
-    apt-get install -y mariadb-galera-server galera dnsutils wget unzip
+    apt-get install -y mariadb-galera-server galera dnsutils wget unzip curl jq
 
-ENV CONSUL_VERSION=1.4.0
+ENV CONSUL_VERSION=1.12.2
 RUN echo "-----------------Install Consul-----------------" &&\
     cd /tmp &&\
     mkdir /consul &&\

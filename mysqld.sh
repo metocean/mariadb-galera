@@ -57,24 +57,32 @@ fi
 
 CONSULEXIT=
 trap '$CONSULEXIT; kill -TERM $PID' TERM INT
-
 if [ -z "$CONSULDATA" ]; then export CONSULDATA="/tmp/consul-data";fi
 if [ -z "$CONSULDIR" ]; then export CONSULDIR="/consul";fi
 if [[ "$(ls -A $CONSULDIR)" ]] || [[ -n $CONSULOPTS  ]]; then
     CONSULEXIT="consul leave"
     consul agent -data-dir=$CONSULDATA -config-dir=$CONSULDIR $CONSULOPTS &
     CONSULPID=$!
-    if [[ -n $DATABASE_HOST ]]; then
-      echo "${LOG_MESSAGE} Looking for other peers under same host."
-      MYIP="`hostname -I | xargs`"
-      CLUSTER_IPS=
-      for ip in `dig ${DATABASE_HOST} +short`; do
-        if [ "$ip" != "$MYIP" ]; then
-          CLUSTER_IPS="${CLUSTER_IPS}${CLUSTER_IPS:+,}$ip"
-        fi
-      done
-      OPT="$OPT --wsrep-cluster-address=gcomm://$CLUSTER_IPS"
+elif [[ -n "$CONSULHTTP" ]] && [[ -n "$SERVICEFILE" ]];then
+    # This option allow to use a pre-existing consul agent to register the service
+    echo "Registering Galera to Consul at ${CONSULHTTP} using file: $SERVICEFILE"
+    # This don't work, see next line for alternative method
+    #consul services register -http-addr=$CONSULHTTP $SERVICEFILE 
+    curl -X PUT --data @$SERVICEFILE $CONSULHTTP/v1/agent/service/register
+    service_id=$(jq -r '.name' $SERVICEFILE)
+    CONSULEXIT="curl -X PUT $CONSULHTTP/v1/agent/service/deregister/$service_id"
+fi
+
+if [[ -n $DATABASE_HOST ]] && [[ -n $CONSULEXIT ]]; then
+    echo "${LOG_MESSAGE} Looking for other peers under same host."
+    MYIP="`hostname -I | xargs`"
+    CLUSTER_IPS=
+    for ip in `dig ${DATABASE_HOST} +short`; do
+    if [ "$ip" != "$MYIP" ]; then
+      CLUSTER_IPS="${CLUSTER_IPS}${CLUSTER_IPS:+,}$ip"
     fi
+    done
+    OPT="$OPT --wsrep-cluster-address=gcomm://$CLUSTER_IPS"
 fi
 
 # Start mysqld
