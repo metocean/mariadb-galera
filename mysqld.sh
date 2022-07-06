@@ -61,6 +61,9 @@ if [ -z "$CONSULDATA" ]; then export CONSULDATA="/tmp/consul-data";fi
 if [ -z "$CONSULDIR" ]; then export CONSULDIR="/consul";fi
 if [[ "$(ls -A $CONSULDIR)" ]] || [[ -n $CONSULOPTS  ]]; then
     CONSULEXIT="consul leave"
+    if [[ -n $CONSUL_SERVICE_USE_INTERNAL_IP ]]; then
+        sed "s/INTERNAL_IP/${INTERNAL_IP}/g" > $CONSULDIR/database.json
+    fi
     consul agent -data-dir=$CONSULDATA -config-dir=$CONSULDIR $CONSULOPTS &
     CONSULPID=$!
 elif [[ -n "$CONSULHTTP" ]] && [[ -n "$SERVICEFILE" ]];then
